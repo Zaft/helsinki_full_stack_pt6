@@ -1,4 +1,5 @@
 import { createSlice } from '@reduxjs/toolkit'
+import anecdoteService from '../services/anecdotes'
 
 const anecdotesAtStart = [
   'If it hurts, do it more often',
@@ -19,83 +20,58 @@ const asObject = (anecdote) => {
   }
 }
 
-const initialState = anecdotesAtStart.map(asObject)
-
-//#region Action Creators
-const upVoteAnecdote = (id) => {
-  return {
-    type: 'UPVOTE',
-    payload: {
-      id: id
-    }
-  }
-}
-
-const createAnecdote = (anecdote) => {
-  // console.log('Action Creator, createAnecdote anecdote, ', anecdote)
-  return {
-    type: 'CREATE',
-    payload: {
-      content: anecdote,
-      id: getId(),
-      votes: 0
-    }
-  }
-}
-//#endregion
+// const initialState = anecdotesAtStart.map(asObject)
+const initialState = []
 
 const anecdoteSlice = createSlice({
   name: 'anecdotes',
   initialState,
   reducers: {
-    createAnecdote(state, action) {
-      const content = action.payload
-      state.push({
-        content: content,
-        id: getId(),
-        votes: 0
-      })
+    appendAnecdote(state, action) {
+      // const content = action.payload
+      state.push(action.payload)
     },
-    upVoteAnecdote(state, action) {
-      
-    }
+    update(state, action) {
+      const anecdote = action.payload
+      // const old = state.find(a => a.id === anecdote.id)
+      // const changed = {
+      //   ...anecdote,
+      // }
+      console.log('reducer updateAnecdote', anecdote)
+      return sortByVotes(state.map(a => 
+        a.id !== anecdote.id ? a : anecdote
+      ))
+    },
+    setAnecdotes(state, action) {
+      // console.log('reducer payload',action.payload)
+      return action.payload
+    },
   }
 })
 
-// Notes: I followed the pattern for immutibaly updating the object and array
-// using patterns in the redux documentation.
-// https://redux.js.org/usage/structuring-reducers/refactoring-reducer-example
-const anecdoteReducer = (state = initialState, action) => {
-  console.log('state now: ', state)
-  console.log('action', action)
-  switch (action.type) {
-    case 'UPVOTE':
-      // console.log('Reducer, UPVOTE (state, action)', state, action)
-      const updatedState = upVote(state, action)
-      return updatedState
-    case 'CREATE':
-      // console.log('Reducer, ADD (state, action)', state, action)
-      const updateState = create(state, action)
-      return updateState
-    default: return state
+const sortByVotes = (state) => {
+  return state.sort((a, b) => b.votes - a.votes)
+}
+
+export const initializeAnecdotes = () => {
+  return async dispatch => {
+    const anecdotes = await anecdoteService.getAll()
+    dispatch(setAnecdotes(anecdotes))
   }
 }
 
-const create = (state, action) => {
-  return sortByVotes(state.concat(action.payload))
+export const createAnecdote = (anecdote) => {
+  return async dispatch => {
+    const newAnecdote = await anecdoteService.createNew(anecdote)
+    dispatch(appendAnecdote(newAnecdote))
+  }
 }
 
-const upVote = (state, action) => {
-  const newState = updateItemInArray(state, action.payload.id, anecdote => {
-    const votes = anecdote.votes + 1
-    return updateObject(anecdote, { votes: votes })
-  })
-
-  return sortByVotes(newState)
-}
-
-const sortByVotes = (state) => {
-  return state.sort((a, b) => b.votes - a.votes)
+export const updateAnecdote = (anecdote) => {
+  return async dispatch => {
+    const updated = await anecdoteService.update(anecdote.id, anecdote)
+    dispatch(update(updated))
+  }
 }
 
 const updateObject = (oldObject, newValues) => {
@@ -115,5 +91,6 @@ const updateItemInArray = (array, itemId, updateItemCallback) => {
   return updatedItems
 }
 
-export default anecdoteReducer
-export { upVoteAnecdote, createAnecdote }
+export const { appendAnecdote, setAnecdotes, update } = anecdoteSlice.actions
+export default anecdoteSlice.reducer
+// export { upVoteAnecdote, createAnecdote }
